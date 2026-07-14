@@ -1,0 +1,94 @@
+.cert-card {
+  overflow: hidden;
+}
+.cert-top {
+  position: relative;
+  padding: 22px;
+  background: linear-gradient(135deg, #FAF6EC, #F4ECD7);
+  border-bottom: 1px solid var(--line);
+}
+.cert-top .seal {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2.5px solid var(--gold);
+  background: #fff;
+  display: grid;
+  place-items: center;
+  color: var(--gold);
+  box-shadow: 0 4px 12px rgba(200, 150, 30, .25);
+}
+.cert-top .seal svg {
+  width: 22px;
+  height: 22px;
+}
+.cert-mini {
+  border: 1px solid #E4D9BC;
+  border-radius: 10px;
+  background: #fff;
+  padding: 16px 16px 14px;
+  text-align: center;
+}
+.cert-mini .ln {
+  height: 6px;
+  border-radius: 4px;
+  background: #EFE7D2;
+  margin: 0 auto;
+}
+.locked .cert-top {
+  filter: grayscale(.7);
+  opacity: .7;
+  background: linear-gradient(135deg, #F1F2F6, #E8EAF0);
+}
+
+.modal-ov {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 27, 51, .55);
+  backdrop-filter: blur(3px);
+  z-index: 100;
+  display: none;
+  place-items: center;
+  padding: 30px;
+}
+.modal-ov.open {
+  display: grid;
+}
+.diploma {
+  width: 760px;
+  max-width: 100%;
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--sh-lg);
+}
+.dip-paper {
+  margin: 0;
+  padding: 46px 56px;
+  border: 10px solid #fff;
+  position: relative;
+  background: linear-gradient(135deg, #FBFAF5, #FFFFFF);
+}
+.dip-paper::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border: 2px solid var(--gold);
+  border-radius: 6px;
+  opacity: .5;
+}
+.dip-paper::after {
+  content: "";
+  position: absolute;
+  inset: 20px;
+  border: 1px solid var(--brand-300);
+  border-radius: 4px;
+  opacity: .5;
+}
+.dip-inner {
+  position: relative;
+  text-align: center;
+}
