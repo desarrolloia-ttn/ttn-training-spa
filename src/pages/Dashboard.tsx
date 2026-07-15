@@ -3,7 +3,8 @@ import { Topbar } from '../components/Topbar';
 import { ProgressBar } from '../components/ProgressBar';
 import { useAssistant } from '../context/AssistantContext';
 import { useAssistantContext } from '../hooks/useAssistantContext';
-import { CertIcon, PlayIcon, SparkIcon } from '../icons';
+import { useAuth } from '../context/AuthContext';
+import { PlayIcon, SparkIcon } from '../icons';
 
 interface ProjectCard {
   to: string;
@@ -61,9 +62,29 @@ const PROJECTS: ProjectCard[] = [
   },
 ];
 
+const LockIcon = () => (
+  <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="var(--brand-600)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="5" y="11" width="14" height="9" rx="2" />
+    <path d="M8 11V8a4 4 0 018 0v3" />
+  </svg>
+);
+
 export function Dashboard() {
   useAssistantContext('Dashboard general');
   const { open } = useAssistant();
+  const { canAccess, user, isAdmin } = useAuth();
+  const asistOpen = canAccess(2);
+
+  const firstName = user?.name?.split(' ')[0] ?? '';
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const rawDate = now.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateLabel = rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
+  const accessibleCount = [1, 2, 3, 4].filter((id) => canAccess(id)).length;
+  const pct = Math.round((accessibleCount / 4) * 100);
+  const asistDone = user?.progress?.['2']?.length ?? 0;
+  const asistPct = Math.round((asistDone / 15) * 100);
 
   return (
     <>
@@ -71,26 +92,29 @@ export function Dashboard() {
       <div className="content">
         <section className="page-head" style={{ display: 'flex', alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 260 }}>
-            <div className="chip brand" style={{ marginBottom: 12 }}>Lunes 3 de junio · Buenos días</div>
-            <h1>Hola, Ana 👋</h1>
+            <div className="chip brand" style={{ marginBottom: 12 }}>{dateLabel} · {greeting}</div>
+            <h1> {firstName} </h1>
             <p>
-              Vas muy bien este mes. Tienes <b style={{ color: 'var(--ink-800)' }}>2 módulos</b> por terminar y{' '}
-              <b style={{ color: 'var(--ink-800)' }}>1 evaluación</b> esta semana.
+              {isAdmin
+                ? 'Gestiona usuarios, módulos y contenido de la plataforma desde el panel de administración.'
+                : accessibleCount > 0
+                  ? <>Tienes <b style={{ color: 'var(--ink-800)' }}>{accessibleCount} {accessibleCount === 1 ? 'módulo habilitado' : 'módulos habilitados'}</b>. ¡A seguir aprendiendo!</>
+                  : 'Aún no tienes módulos habilitados. Pídele acceso a tu administrador.'}
             </p>
           </div>
           <div className="row" style={{ gap: 14 }}>
             <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div className="ring" style={{ ['--p' as string]: 72 } as React.CSSProperties}>
-                <div className="v"><b>72%</b><small>global</small></div>
+              <div className="ring" style={{ ['--p' as string]: pct } as React.CSSProperties}>
+                <div className="v"><b>{pct}%</b><small>acceso</small></div>
               </div>
               <div>
                 <div className="tiny muted" style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                  Progreso total
+                  Módulos habilitados
                 </div>
                 <div style={{ fontFamily: "'Sora'", fontWeight: 800, fontSize: 20, color: 'var(--ink-900)', marginTop: 2 }}>
-                  13 de 18 módulos
+                  {accessibleCount} de 4 módulos
                 </div>
-                <div className="tiny muted">en 4 proyectos activos</div>
+                <div className="tiny muted">del producto Biowel</div>
               </div>
             </div>
           </div>
@@ -98,10 +122,10 @@ export function Dashboard() {
 
         <section className="grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 24 }}>
           {[
-            { label: 'Cursando', chip: ['brand', 'Activo'], v: '3', sub: 'módulos en progreso' },
-            { label: 'Certificados', chip: ['gold', 'Emitidos'], v: '5', sub: 'descargables en PDF' },
-            { label: 'Horas', chip: ['ok', '+3.5h'], v: '28h', sub: 'de formación acumuladas' },
-            { label: 'Vence pronto', chip: ['warn', '2 días'], v: '1', sub: 'evaluación pendiente' },
+            { label: 'Habilitados', chip: ['brand', 'Acceso'], v: String(accessibleCount), sub: 'módulos disponibles' },
+            { label: 'Certificados', chip: ['gold', 'Emitidos'], v: '0', sub: 'descargables en PDF' },
+            { label: 'Horas', chip: ['ok', 'Total'], v: '0h', sub: 'de formación acumuladas' },
+            { label: 'Evaluaciones', chip: ['warn', 'Pendientes'], v: '0', sub: 'por presentar' },
           ].map((k) => (
             <div className="card" style={{ padding: 18 }} key={k.label}>
               <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -122,7 +146,7 @@ export function Dashboard() {
               <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
                 <h2 style={{ fontSize: 19 }}>Continúa donde quedaste</h2>
               </div>
-              <Link className="card" to="/modulo" style={{ display: 'flex', overflow: 'hidden', gap: 0 }}>
+              <Link className="card" to={asistOpen ? '/modulo/2' : '/proyecto/biowel'} style={{ display: 'flex', overflow: 'hidden', gap: 0 }}>
                 <div
                   style={{
                     width: 236,
@@ -157,7 +181,7 @@ export function Dashboard() {
                       color: 'var(--brand-600)',
                     }}
                   >
-                    <PlayIcon width={24} height={24} />
+                    {asistOpen ? <PlayIcon width={24} height={24} /> : <LockIcon />}
                   </div>
                   <span
                     className="chip"
@@ -170,7 +194,7 @@ export function Dashboard() {
                       color: '#fff',
                     }}
                   >
-                    Lección 1 · 3:00
+                    {asistOpen ? 'Lección 1 · 3:00' : 'Bloqueado'}
                   </span>
                 </div>
                 <div style={{ padding: '20px 22px', flex: 1 }}>
@@ -181,15 +205,24 @@ export function Dashboard() {
                   <p className="tiny muted" style={{ margin: '0 0 16px' }}>
                     Agendamiento, admisión, atención (HCE) y ordenamiento clínico.
                   </p>
-                  <div className="row" style={{ justifyContent: 'space-between', marginBottom: 7 }}>
-                    <span className="tiny muted" style={{ fontWeight: 700 }}>Progreso del módulo</span>
-                    <span className="tiny" style={{ fontWeight: 700, color: 'var(--ink-800)' }}>0%</span>
-                  </div>
-                  <ProgressBar value={0} />
-                  <div className="row" style={{ marginTop: 16, gap: 10 }}>
-                    <span className="btn pri sm">Empezar módulo ▸</span>
-                    <span className="chip">0 / 15 lecciones</span>
-                  </div>
+                  {asistOpen ? (
+                    <>
+                      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 7 }}>
+                        <span className="tiny muted" style={{ fontWeight: 700 }}>Progreso del módulo</span>
+                        <span className="tiny" style={{ fontWeight: 700, color: 'var(--ink-800)' }}>{asistPct}%</span>
+                      </div>
+                      <ProgressBar value={asistPct} />
+                      <div className="row" style={{ marginTop: 16, gap: 10 }}>
+                        <span className="btn pri sm">{asistDone > 0 ? 'Continuar módulo ▸' : 'Empezar módulo ▸'}</span>
+                        <span className="chip">{asistDone} / 15 lecciones</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="row" style={{ marginTop: 8, gap: 10 }}>
+                      <span className="chip">🔒 Bloqueado</span>
+                      <span className="tiny muted">Pide acceso a tu administrador</span>
+                    </div>
+                  )}
                 </div>
               </Link>
             </section>
@@ -252,7 +285,9 @@ export function Dashboard() {
                 <h3 style={{ color: '#fff', fontSize: 16 }}>Asistente IA</h3>
               </div>
               <p style={{ margin: '12px 0 16px', fontSize: 13.5, color: 'rgba(255,255,255,.85)', position: 'relative' }}>
-                “¿Quieres que te prepare un repaso de <b style={{ color: '#fff' }}>Prevención de eventos adversos</b> antes de tu evaluación?”
+                {isAdmin
+                  ? '“¿Necesitas ayuda con la gestión de la plataforma o con algún flujo del sistema Biowel?”'
+                  : '“¿Quieres que te resuma un flujo del módulo Asistencial o te prepare una pregunta de práctica?”'}
               </p>
               <span className="btn sm" style={{ background: '#fff', color: 'var(--brand-700)', border: 0, position: 'relative' }}>
                 Pregúntale al asistente →
@@ -261,38 +296,7 @@ export function Dashboard() {
 
             <section className="card" style={{ padding: 20 }}>
               <h3 style={{ fontSize: 16, marginBottom: 14 }}>Próximas fechas</h3>
-              <div className="grid" style={{ gap: 12 }}>
-                {[
-                  { d: '05', m: 'JUN', tone: 'danger', t: 'Evaluación · Eventos adversos', s: 'Seguridad del Paciente · vence en 2 días' },
-                  { d: '12', m: 'JUN', tone: 'brand', t: 'Cierre módulo HCE', s: 'Historia Clínica Electrónica' },
-                  { d: '20', m: 'JUN', tone: 'brand', t: 'Nuevo proyecto asignado', s: 'Atención Humanizada' },
-                ].map((d, i, arr) => (
-                  <div key={d.t}>
-                    <div className="row" style={{ gap: 13 }}>
-                      <div
-                        style={{
-                          width: 46,
-                          flex: 'none',
-                          textAlign: 'center',
-                          background: `var(--${d.tone}-50)`,
-                          borderRadius: 10,
-                          padding: '7px 0',
-                        }}
-                      >
-                        <div style={{ fontFamily: "'Sora'", fontWeight: 800, fontSize: 17, color: `var(--${d.tone}-600)` }}>
-                          {d.d}
-                        </div>
-                        <div className="tiny" style={{ color: `var(--${d.tone}-600)`, fontWeight: 700 }}>{d.m}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-900)' }}>{d.t}</div>
-                        <div className="tiny muted">{d.s}</div>
-                      </div>
-                    </div>
-                    {i < arr.length - 1 && <div className="divider" style={{ margin: '2px 0' }} />}
-                  </div>
-                ))}
-              </div>
+              <div className="tiny muted" style={{ padding: '6px 0' }}>No tienes fechas próximas por ahora.</div>
             </section>
 
             <section className="card" style={{ padding: 20 }}>
@@ -300,39 +304,7 @@ export function Dashboard() {
                 <h3 style={{ fontSize: 16 }}>Últimos certificados</h3>
                 <Link className="tiny" style={{ color: 'var(--brand-600)', fontWeight: 700 }} to="/certificados">Ver todos</Link>
               </div>
-              <div className="grid" style={{ gap: 10 }}>
-                {[
-                  { t: 'Inducción Clínica', s: 'Proyecto completo · 02 jun' },
-                  { t: 'Módulo · Higiene de manos', s: 'Seguridad del Paciente · 28 may' },
-                ].map((c) => (
-                  <Link
-                    className="row"
-                    to="/certificados"
-                    key={c.t}
-                    style={{ gap: 12, padding: 10, border: '1px solid var(--line)', borderRadius: 12 }}
-                  >
-                    <div
-                      style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 10,
-                        background: 'var(--gold-50)',
-                        display: 'grid',
-                        placeItems: 'center',
-                        flex: 'none',
-                        color: 'var(--gold)',
-                      }}
-                    >
-                      <CertIcon width={19} height={19} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink-900)' }}>{c.t}</div>
-                      <div className="tiny muted">{c.s}</div>
-                    </div>
-                    <span className="chip gold">PDF</span>
-                  </Link>
-                ))}
-              </div>
+              <div className="tiny muted" style={{ padding: '6px 0' }}>Aún no tienes certificados emitidos.</div>
             </section>
           </div>
         </div>

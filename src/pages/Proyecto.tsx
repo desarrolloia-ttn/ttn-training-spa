@@ -3,6 +3,7 @@ import { Topbar } from '../components/Topbar';
 import { ProgressBar } from '../components/ProgressBar';
 import { ActivosFijosLogo, BiowelLogo } from '../components/ProductLogos';
 import { useAssistantContext } from '../hooks/useAssistantContext';
+import { useAuth } from '../context/AuthContext';
 import { BIOWEL_MODULES, type BiowelModule, getProduct } from '../data/products';
 import { CertIcon } from '../icons';
 
@@ -33,10 +34,10 @@ function ctaLabel(status: BiowelModule['status']): string {
   return 'Bloqueado';
 }
 
-function ModuleCard({ mod }: { mod: BiowelModule }) {
-  const chip = statusChip(mod.status);
-  const isLocked = mod.status === 'locked';
-  const isCurrent = mod.status === 'progress';
+function ModuleCard({ mod, accessible }: { mod: BiowelModule; accessible: boolean }) {
+  const isLocked = !accessible;
+  const isCurrent = accessible && mod.status === 'progress';
+  const chip = isLocked ? { className: 'chip', label: 'Bloqueado' } : statusChip(mod.status);
 
   const cardStyle: React.CSSProperties = {
     overflow: 'hidden',
@@ -119,7 +120,7 @@ function ModuleCard({ mod }: { mod: BiowelModule }) {
               color: isLocked ? 'var(--ink-400)' : 'var(--brand-600)',
             }}
           >
-            {ctaLabel(mod.status)}
+            {isLocked ? 'Bloqueado' : ctaLabel(mod.status)}
           </span>
         </div>
       </div>
@@ -131,7 +132,7 @@ function ModuleCard({ mod }: { mod: BiowelModule }) {
   }
 
   return (
-    <Link className="card" to="/modulo" style={cardStyle}>
+    <Link className="card" to={`/modulo/${mod.id}`} style={cardStyle}>
       {body}
     </Link>
   );
@@ -139,6 +140,12 @@ function ModuleCard({ mod }: { mod: BiowelModule }) {
 
 function BiowelDetail() {
   useAssistantContext('Producto · Biowel');
+  const { canAccess, user } = useAuth();
+
+  // Progreso real del módulo 2 (Asistencial) desde el progreso guardado del usuario.
+  const asistDone = user?.progress?.['2']?.length ?? 0;
+  const asistTotal = 15;
+  const asistPct = Math.round((asistDone / asistTotal) * 100);
 
   const completed = BIOWEL_MODULES.filter((m) => m.status === 'done').length;
   const total = BIOWEL_MODULES.length;
@@ -221,9 +228,15 @@ function BiowelDetail() {
                 <div className="v"><b style={{ fontSize: 28 }}>{pct}%</b><small>completado</small></div>
               </div>
               <div className="tiny muted" style={{ marginTop: 8 }}>{completed} de {total} módulos finalizados</div>
-              <Link className="btn pri lg" to="/modulo" style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}>
-                Empezar módulo 2 ▸
-              </Link>
+              {canAccess(2) ? (
+                <Link className="btn pri lg" to="/modulo/2" style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}>
+                  Empezar módulo 2 ▸
+                </Link>
+              ) : (
+                <button className="btn lg" disabled style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}>
+                  🔒 Módulo 2 bloqueado
+                </button>
+              )}
               <span className="tiny muted">Última actividad: hoy</span>
             </div>
           </div>
@@ -237,9 +250,18 @@ function BiowelDetail() {
             </div>
 
             <div className="grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
-              {BIOWEL_MODULES.map((m) => (
-                <ModuleCard mod={m} key={m.id} />
-              ))}
+              {BIOWEL_MODULES.map((m) => {
+                const mod =
+                  m.id === 2
+                    ? {
+                        ...m,
+                        progress: asistPct,
+                        status: asistPct === 100 ? 'done' : asistDone > 0 ? 'progress' : 'idle',
+                        meta: `${asistDone} / ${asistTotal} lecciones`,
+                      } as BiowelModule
+                    : m;
+                return <ModuleCard mod={mod} accessible={canAccess(m.id)} key={m.id} />;
+              })}
             </div>
           </div>
 

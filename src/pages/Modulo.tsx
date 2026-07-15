@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { Topbar } from '../components/Topbar';
 import { ProgressBar } from '../components/ProgressBar';
 import { useAssistant } from '../context/AssistantContext';
+import { useAuth } from '../context/AuthContext';
+import { saveProgress } from '../lib/api';
 import { BellIcon, CertIcon, SparkIcon } from '../icons';
-import { ASISTENCIAL_BLOCKS, ASISTENCIAL_LESSONS, ASISTENCIAL_TOTAL, type ContentBlock } from '../data/asistencial';
+import { getModuleContent } from '../data/modules';
+import { lessonsOf, type ContentBlock } from '../data/moduleTypes';
 
 import './Modulo.css';
 
@@ -31,30 +34,40 @@ function ContentBlockView({ block }: { block: ContentBlock }) {
 }
 
 export function Modulo() {
-  const { open, setContext, setDetail } = useAssistant();
+  const { open, setContext, setDetail, setModuleId } = useAssistant();
+  const { user, applyUser } = useAuth();
   const { hash } = useLocation();
+  const { moduleId: moduleIdParam } = useParams();
+  const moduleId = Number(moduleIdParam);
+  const module = getModuleContent(moduleId);
+
+  const blocks = module?.blocks ?? [];
+  const lessons = useMemo(() => (module ? lessonsOf(module) : []), [module]);
+  const total = lessons.length;
+
   const [tab, setTab] = useState<Tab>(hash === '#docs' ? 'docs' : 'leccion');
   const [videoError, setVideoError] = useState(false);
-
-  // Desde cero: la primera lección es la activa y no hay ninguna completada.
-  const [activeId, setActiveId] = useState(ASISTENCIAL_LESSONS[0].id);
-  const [completed, setCompleted] = useState<Set<string>>(() => new Set());
+  const [activeId, setActiveId] = useState(() => lessons[0]?.id ?? '');
+  const [completed, setCompleted] = useState<Set<string>>(
+    () => new Set(user?.progress?.[String(moduleId)] ?? []),
+  );
 
   useEffect(() => {
     if (hash === '#docs') setTab('docs');
   }, [hash]);
 
-  const activeIndex = ASISTENCIAL_LESSONS.findIndex((l) => l.id === activeId);
-  const active = ASISTENCIAL_LESSONS[activeIndex];
-  const activeBlock = ASISTENCIAL_BLOCKS.find((b) => b.lessons.some((l) => l.id === activeId));
+  const activeIndex = lessons.findIndex((l) => l.id === activeId);
+  const active = lessons[activeIndex];
+  const activeBlock = blocks.find((b) => b.lessons.some((l) => l.id === activeId));
   const progress = useMemo(
-    () => Math.round((completed.size / ASISTENCIAL_TOTAL) * 100),
-    [completed],
+    () => (total ? Math.round((completed.size / total) * 100) : 0),
+    [completed, total],
   );
 
-  // Contexto para la IA: etiqueta corta + detalle rico de la lección actual.
   useEffect(() => {
-    setContext(`Módulo 2 · Asistencial — Lección ${active.code}`);
+    if (!module || !active) return;
+    setModuleId(module.id);
+    setContext(`${module.title} — Lección ${active.code}`);
 
     const onScreen = active.content
       ? active.content
@@ -66,7 +79,7 @@ export function Modulo() {
 
     setDetail(
       [
-        'El alumno está en la plataforma de capacitación de Biowel, Módulo 2 · Asistencial.',
+        `El alumno está en la plataforma de capacitación de Biowel, ${module.code}.`,
         activeBlock ? `Bloque actual: ${activeBlock.title}.` : '',
         `Lección actual: ${active.code} · ${active.title}.`,
         `Resumen de la lección: ${active.summary}`,
@@ -77,7 +90,27 @@ export function Modulo() {
         .filter(Boolean)
         .join('\n'),
     );
-  }, [activeId, active, activeBlock, setContext, setDetail]);
+  }, [module, active, activeBlock, setContext, setDetail, setModuleId]);
+
+  if (!module || !active) {
+    return (
+      <>
+        <Topbar crumb={<><Link to="/proyecto/biowel">Biowel</Link> · <b>Módulo</b></>} />
+        <div className="content">
+          <section className="card" style={{ padding: '48px 32px', textAlign: 'center', maxWidth: 560, margin: '40px auto' }}>
+            <h1 style={{ fontSize: 24, marginBottom: 10 }}>Contenido en preparación</h1>
+            <p className="muted" style={{ margin: '0 0 20px' }}>
+              Este módulo todavía no tiene lecciones cargadas en la plataforma.
+            </p>
+            <Link className="btn pri" to="/proyecto/biowel">← Volver al producto</Link>
+          </section>
+        </div>
+      </>
+    );
+  }
+
+  const poster = module.cover ?? '/modules/asistencial.png';
+  const docs = module.docs ?? [];
 
   const goTo = (id: string) => {
     setActiveId(id);
@@ -85,12 +118,17 @@ export function Modulo() {
     setTab('leccion');
   };
   const goPrev = () => {
-    if (activeIndex > 0) goTo(ASISTENCIAL_LESSONS[activeIndex - 1].id);
+    if (activeIndex > 0) goTo(lessons[activeIndex - 1].id);
   };
-  const markViewed = () => setCompleted((prev) => new Set(prev).add(activeId));
+  const markViewed = () => {
+    if (completed.has(activeId)) return;
+    const next = new Set(completed).add(activeId);
+    setCompleted(next);
+    void saveProgress(moduleId, [...next]).then(applyUser).catch(() => {});
+  };
   const completeAndNext = () => {
     markViewed();
-    if (activeIndex < ASISTENCIAL_TOTAL - 1) goTo(ASISTENCIAL_LESSONS[activeIndex + 1].id);
+    if (activeIndex < total - 1) goTo(lessons[activeIndex + 1].id);
   };
 
   return (
@@ -98,7 +136,8 @@ export function Modulo() {
       <Topbar
         crumb={
           <>
-            <Link to="/proyectos">Productos</Link> · <Link to="/proyecto/biowel">Biowel</Link> · <b>Módulo 2</b>
+            <Link to="/proyectos">Productos</Link> · <Link to="/proyecto/biowel">Biowel</Link> ·{' '}
+            <b>Módulo {module.id}</b>
           </>
         }
         right={
@@ -118,7 +157,7 @@ export function Modulo() {
         <div className="grid" style={{ gridTemplateColumns: '1.9fr 1fr', alignItems: 'start', gap: 26 }}>
           <div>
             <div className="tiny" style={{ color: 'var(--brand-600)', fontWeight: 700, marginBottom: 8 }}>
-              MÓDULO 2 · ASISTENCIAL
+              {module.code}
             </div>
             <h1 style={{ fontSize: 24, marginBottom: 18 }}>Lección {active.code} · {active.title}</h1>
 
@@ -129,7 +168,7 @@ export function Modulo() {
                     key={active.id}
                     className="vid"
                     src={active.video}
-                    poster="/modules/asistencial.png"
+                    poster={poster}
                     controls
                     controlsList="nodownload"
                     onEnded={markViewed}
@@ -173,7 +212,8 @@ export function Modulo() {
                   {t === 'leccion' && 'Lección'}
                   {t === 'docs' && (
                     <>
-                      Documentación <span className="chip brand" style={{ marginLeft: 4, padding: '0 7px' }}>3</span>
+                      Documentación{' '}
+                      <span className="chip brand" style={{ marginLeft: 4, padding: '0 7px' }}>{docs.length}</span>
                     </>
                   )}
                   {t === 'notas' && 'Mis notas'}
@@ -199,7 +239,7 @@ export function Modulo() {
                 <div className="row" style={{ gap: 12, marginTop: 26 }}>
                   <button className="btn" onClick={goPrev} disabled={activeIndex === 0}>◂ Lección anterior</button>
                   <button className="btn pri" onClick={completeAndNext}>
-                    {activeIndex === ASISTENCIAL_TOTAL - 1 ? 'Marcar completada ✓' : 'Marcar completada y seguir ▸'}
+                    {activeIndex === total - 1 ? 'Marcar completada ✓' : 'Marcar completada y seguir ▸'}
                   </button>
                   <button className="btn ghost" onClick={open}>
                     <SparkIcon width={14} height={14} /> Preguntar a la IA
@@ -217,25 +257,29 @@ export function Modulo() {
                       Material complementario para reforzar y consultar durante la lección.
                     </p>
                   </div>
-                  <button className="btn sm" onClick={open}>Resumir con IA</button>
+                  {docs.length > 0 && <button className="btn sm" onClick={open}>Resumir con IA</button>}
                 </div>
-                <div className="grid" style={{ gap: 11, maxWidth: 680 }}>
-                  {[
-                    { kind: 'PDF', tone: 'danger', title: 'Guía de uso · Biowel Asistencial', sub: 'Manual completo · recomendado leer primero', chip: 'Leer', chipTone: 'brand' },
-                    { kind: 'DOC', tone: 'brand', title: 'Checklist de agendamiento y admisión', sub: 'Editable · flujo paso a paso', chip: 'Abrir' },
-                    { kind: 'LINK', tone: 'warn', title: 'Códigos CIE-10 · referencia diagnóstica', sub: 'Enlace externo', chip: 'Visitar' },
-                  ].map((d) => (
-                    <div className="docrow" key={d.title}>
-                      <div className="ico" style={{ background: `var(--${d.tone}-50)`, color: `var(--${d.tone}-600)` }}>{d.kind}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-900)' }}>{d.title}</div>
-                        <div className="tiny muted">{d.sub}</div>
-                      </div>
-                      <span className={`chip${d.chipTone ? ` ${d.chipTone}` : ''}`}>{d.chip}</span>
-                      {d.kind !== 'LINK' && <button className="btn sm">⤓</button>}
-                    </div>
-                  ))}
-                </div>
+                {docs.length === 0 ? (
+                  <div className="tiny muted">La documentación de apoyo se agregará aquí.</div>
+                ) : (
+                  <div className="grid" style={{ gap: 11, maxWidth: 680 }}>
+                    {docs.map((d) => {
+                      const tone = d.kind === 'PDF' ? 'danger' : d.kind === 'DOC' ? 'brand' : 'warn';
+                      const cta = d.kind === 'LINK' ? 'Visitar' : d.kind === 'DOC' ? 'Abrir' : 'Leer';
+                      return (
+                        <div className="docrow" key={d.title}>
+                          <div className="ico" style={{ background: `var(--${tone}-50)`, color: `var(--${tone}-600)` }}>{d.kind}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-900)' }}>{d.title}</div>
+                            <div className="tiny muted">{d.sub}</div>
+                          </div>
+                          <span className="chip">{cta}</span>
+                          {d.kind !== 'LINK' && <button className="btn sm">⤓</button>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -270,12 +314,12 @@ export function Modulo() {
               <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--line)' }}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <h3 style={{ fontSize: 15 }}>Contenido del módulo</h3>
-                  <span className="chip">{completed.size} / {ASISTENCIAL_TOTAL}</span>
+                  <span className="chip">{completed.size} / {total}</span>
                 </div>
                 <ProgressBar value={progress} style={{ marginTop: 10 }} />
               </div>
               <div style={{ padding: '8px 8px 12px', maxHeight: 430, overflowY: 'auto' }}>
-                {ASISTENCIAL_BLOCKS.map((b) => (
+                {blocks.map((b) => (
                   <div key={b.title}>
                     <div className="modgrp">{b.title}</div>
                     {b.lessons.map((l) => {
@@ -319,7 +363,7 @@ export function Modulo() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-900)' }}>Certificado del módulo</div>
-                <div className="tiny muted">Se emite al completar las {ASISTENCIAL_TOTAL} lecciones y aprobar la evaluación.</div>
+                <div className="tiny muted">Se emite al completar las {total} lecciones y aprobar la evaluación.</div>
               </div>
             </section>
 

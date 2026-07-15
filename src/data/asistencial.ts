@@ -2,31 +2,9 @@
 // Manual BIOWEL PRO Asistencial: Introducción → Agendamiento → Admisión → Ordenamiento.
 // El módulo arranca "desde cero": ninguna lección viene marcada como completada.
 
-/** Bloque de contenido para lecciones de solo texto (sin video). */
-export type ContentBlock =
-  | { type: 'p'; text: string }
-  | { type: 'ul'; items: string[] }
-  | { type: 'ol'; items: string[] };
+import type { Block, ModuleContent } from './moduleTypes';
 
-export interface AsistencialLesson {
-  id: string;
-  code: string;
-  title: string;
-  duration: string;
-  summary: string;
-  objectives: string[];
-  /** Ruta del mp4 self-hosted en /public/videos/asistencial. Para lecciones con video. */
-  video?: string;
-  /** Contenido de texto (párrafos/listas) para lecciones de lectura, sin video. */
-  content?: ContentBlock[];
-}
-
-export interface AsistencialBlock {
-  title: string;
-  lessons: AsistencialLesson[];
-}
-
-export const ASISTENCIAL_BLOCKS: AsistencialBlock[] = [
+const ASISTENCIAL_BLOCKS: Block[] = [
   {
     title: 'Bloque 0 · Introducción y acceso',
     lessons: [
@@ -34,7 +12,7 @@ export const ASISTENCIAL_BLOCKS: AsistencialBlock[] = [
         id: 'obj',
         code: '1',
         title: 'Objetivo del módulo',
-        duration: '3:00',
+        duration: '',
         summary:
           'Qué cubre el módulo Asistencial de Biowel: agendar una cita, admitir al paciente, atenderlo (historia clínica) y ordenar. Panorama del flujo de principio a fin.',
         objectives: [
@@ -286,8 +264,15 @@ export const ASISTENCIAL_BLOCKS: AsistencialBlock[] = [
   },
 ];
 
-export const ASISTENCIAL_LESSONS: AsistencialLesson[] = ASISTENCIAL_BLOCKS.flatMap(
-  (b) => b.lessons,
-);
-
-export const ASISTENCIAL_TOTAL = ASISTENCIAL_LESSONS.length;
+export const ASISTENCIAL: ModuleContent = {
+  id: 2,
+  code: 'MÓDULO 2 · ASISTENCIAL',
+  title: 'Asistencial',
+  cover: '/modules/asistencial.png',
+  docs: [
+    { kind: 'PDF', title: 'Guía de uso · Biowel Asistencial', sub: 'Manual completo · recomendado leer primero' },
+    { kind: 'DOC', title: 'Checklist de agendamiento y admisión', sub: 'Editable · flujo paso a paso' },
+    { kind: 'LINK', title: 'Códigos CIE-10 · referencia diagnóstica', sub: 'Enlace externo' },
+  ],
+  blocks: ASISTENCIAL_BLOCKS,
+};

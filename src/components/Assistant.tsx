@@ -22,11 +22,11 @@ const GREETING: Message = {
   id: 0,
   role: 'ai',
   text:
-    'Hola Ana 👋 Soy tu asistente de capacitación. Puedo resolver dudas del módulo, resumir la documentación o prepararte para la evaluación. ¿En qué te ayudo?',
+    'Hola Ana  Soy tu asistente de capacitación. Puedo resolver dudas del módulo, resumir la documentación o prepararte para la evaluación. ¿En qué te ayudo?',
 };
 
 export function Assistant() {
-  const { isOpen, close, context, detail } = useAssistant();
+  const { isOpen, close, context, detail, moduleId } = useAssistant();
   const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -69,7 +69,7 @@ export function Assistant() {
       setMessages((prev) => prev.map((m) => (m.id === placeholderId ? { ...m, text, pending: false } : m)));
 
     // El detalle (lección actual) es más rico que la etiqueta; se prefiere para la IA.
-    sendChat(question, detail || context, history)
+    sendChat(question, detail || context, history, moduleId)
       .then(({ reply }) => resolve(reply))
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'No se pudo contactar al asistente.';
