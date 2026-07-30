@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useAssistant } from '../context/AssistantContext';
+import { useAuth } from '../context/AuthContext';
 import { sendChat, type ApiChatMessage } from '../lib/api';
 import { BookIcon, DocIcon, QuizIcon, SendIcon, SparkRichIcon, TargetIcon, XIcon } from '../icons';
 
@@ -18,16 +19,20 @@ const SUGGESTIONS = [
   { q: '¿Qué documento debo leer primero?', icon: <DocIcon /> },
 ] as const;
 
-const GREETING: Message = {
-  id: 0,
-  role: 'ai',
-  text:
-    'Hola Ana  Soy tu asistente de capacitación. Puedo resolver dudas del módulo, resumir la documentación o prepararte para la evaluación. ¿En qué te ayudo?',
-};
+function buildGreeting(name?: string | null): Message {
+  const first = name?.trim().split(/\s+/)[0];
+  const hola = first ? `Hola ${first}, soy` : 'Hola, soy';
+  return {
+    id: 0,
+    role: 'ai',
+    text: `${hola} tu asistente de capacitación. Puedo resolver dudas del módulo, resumir la documentación o prepararte para la evaluación. ¿En qué te ayudo?`,
+  };
+}
 
 export function Assistant() {
   const { isOpen, close, context, detail, moduleId } = useAssistant();
-  const [messages, setMessages] = useState<Message[]>([GREETING]);
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<Message[]>(() => [buildGreeting(user?.name)]);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -38,6 +43,11 @@ export function Assistant() {
     const id = window.setTimeout(() => inputRef.current?.focus(), 250);
     return () => window.clearTimeout(id);
   }, [isOpen]);
+
+  // Si el usuario carga después del montaje, refresca el saludo (solo si aún no ha chateado).
+  useEffect(() => {
+    setMessages((prev) => (prev.length === 1 && prev[0].id === 0 ? [buildGreeting(user?.name)] : prev));
+  }, [user?.name]);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
@@ -73,7 +83,7 @@ export function Assistant() {
       .then(({ reply }) => resolve(reply))
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'No se pudo contactar al asistente.';
-        resolve(`⚠️ ${msg}`);
+        resolve(` ${msg}`);
       });
   };
 
@@ -113,15 +123,6 @@ export function Assistant() {
         <div className="ai-body" ref={bodyRef}>
           {messages.map((m) => (
             <div className={`msg ${m.role}`} key={m.id}>
-              <div className="who">
-                {m.role === 'ai' ? (
-                  <>
-                    <SparkRichIcon /> Asistente
-                  </>
-                ) : (
-                  'Tú'
-                )}
-              </div>
               <div className="bub">
                 {m.pending ? (
                   <span style={{ opacity: 0.5 }}>{m.text}</span>

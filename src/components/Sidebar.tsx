@@ -4,10 +4,8 @@ import {
   ProjIcon,
   LearnIcon,
   CertIcon,
-  SparkIcon,
   LogoIcon,
 } from '../icons';
-import { useAssistant } from '../context/AssistantContext';
 import { useAuth } from '../context/AuthContext';
 import type { ReactNode } from 'react';
 
@@ -16,6 +14,30 @@ const UsersIcon = () => (
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
     <circle cx="9" cy="7" r="4" />
     <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const ClientsIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21V8l9-5 9 5v13" />
+    <path d="M9 21v-6h6v6" />
+    <path d="M3 21h18" />
+  </svg>
+);
+
+const ModulesIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </svg>
+);
+
+const LessonsIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
   </svg>
 );
 
@@ -40,7 +62,6 @@ interface Group {
 }
 
 export function Sidebar() {
-  const { open } = useAssistant();
   const { user, isAdmin, logout } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -63,7 +84,12 @@ export function Sidebar() {
   if (isAdmin) {
     groups.push({
       title: 'Administración',
-      items: [{ label: 'Usuarios', to: '/usuarios', icon: <UsersIcon />, match: /^\/usuarios/ }],
+      items: [
+        { label: 'Usuarios', to: '/usuarios', icon: <UsersIcon />, match: /^\/usuarios/ },
+        { label: 'Clientes', to: '/admin/clientes', icon: <ClientsIcon />, match: /^\/admin\/clientes/ },
+        { label: 'Módulos', to: '/admin/modulos', icon: <ModulesIcon />, match: /^\/admin\/modulos/ },
+        { label: 'Lecciones', to: '/admin/lecciones', icon: <LessonsIcon />, match: /^\/admin\/lecciones/ },
+      ],
     });
   }
 
@@ -111,19 +137,6 @@ export function Sidebar() {
           </div>
         ))}
       </div>
-
-      <button
-        type="button"
-        className="ai-cta"
-        onClick={open}
-        style={{ background: 'none', border: 0, textAlign: 'left', cursor: 'pointer', width: '100%' }}
-      >
-        <div className="t">
-          <SparkIcon />
-          <span>Asistente IA</span>
-        </div>
-        <p>Resuelve dudas y prepárate para tus evaluaciones.</p>
-      </button>
 
       <div className="me-row">
         <div className="av">{initials}</div>

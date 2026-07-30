@@ -1,11 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Topbar } from '../components/Topbar';
 import { ProgressBar } from '../components/ProgressBar';
 import { ActivosFijosLogo, BiowelLogo } from '../components/ProductLogos';
 import { useAssistantContext } from '../hooks/useAssistantContext';
-import { useAuth } from '../context/AuthContext';
-import { BIOWEL_MODULES, type BiowelModule, getProduct } from '../data/products';
-import { CertIcon } from '../icons';
+import { assetUrl, listClients, type CatalogModule, type Client, type ModuleStatus } from '../lib/api';
+import { moduleStyle, getProduct, type ProductSummary } from '../data/products';
 
 const LockIcon = () => (
   <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="#fff" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
@@ -14,10 +14,10 @@ const LockIcon = () => (
   </svg>
 );
 
-function statusChip(status: BiowelModule['status']): { className: string; label: string } {
+function statusChip(status: ModuleStatus): { className: string; label: string } {
   switch (status) {
     case 'done':
-      return { className: 'chip ok', label: 'Completado ✓' };
+      return { className: 'chip ok', label: 'Completado' };
     case 'progress':
       return { className: 'chip warn', label: 'En progreso' };
     case 'idle':
@@ -27,17 +27,24 @@ function statusChip(status: BiowelModule['status']): { className: string; label:
   }
 }
 
-function ctaLabel(status: BiowelModule['status']): string {
+function ctaLabel(status: ModuleStatus): string {
   if (status === 'done') return 'Repasar →';
   if (status === 'progress') return 'Continuar →';
   if (status === 'idle') return 'Empezar →';
   return 'Bloqueado';
 }
 
-function ModuleCard({ mod, accessible }: { mod: BiowelModule; accessible: boolean }) {
-  const isLocked = !accessible;
-  const isCurrent = accessible && mod.status === 'progress';
-  const chip = isLocked ? { className: 'chip', label: 'Bloqueado' } : statusChip(mod.status);
+function moduleMeta(mod: CatalogModule): string {
+  if (mod.lessonCount === 0) return 'Contenido en preparación';
+  return `${mod.completed} / ${mod.lessonCount} lecciones`;
+}
+
+export function ModuleCard({ mod }: { mod: CatalogModule }) {
+  const style = moduleStyle(mod.id);
+  const cover = assetUrl(mod.cover);
+  const isLocked = !mod.accessible;
+  const isCurrent = mod.accessible && mod.status === 'progress';
+  const chip = statusChip(mod.status);
 
   const cardStyle: React.CSSProperties = {
     overflow: 'hidden',
@@ -52,11 +59,11 @@ function ModuleCard({ mod, accessible }: { mod: BiowelModule; accessible: boolea
   const body = (
     <>
       <div
-        className={`cover ${mod.cover}`}
+        className={`cover ${style.cover}`}
         style={{
           height: 140,
           position: 'relative',
-          backgroundImage: `url(${mod.background})`,
+          backgroundImage: `url(${cover ?? style.background})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
@@ -101,14 +108,14 @@ function ModuleCard({ mod, accessible }: { mod: BiowelModule; accessible: boolea
         {!isLocked && (
           <div style={{ marginTop: 4 }}>
             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-              <span className="tiny muted" style={{ fontWeight: 700 }}>{mod.meta}</span>
+              <span className="tiny muted" style={{ fontWeight: 700 }}>{moduleMeta(mod)}</span>
               <span className="tiny" style={{ fontWeight: 700, color: 'var(--ink-800)' }}>{mod.progress}%</span>
             </div>
             <ProgressBar value={mod.progress} ok={mod.status === 'done'} />
           </div>
         )}
         {isLocked && (
-          <div className="tiny muted" style={{ marginTop: 4 }}>{mod.meta}</div>
+          <div className="tiny muted" style={{ marginTop: 4 }}>{moduleMeta(mod)}</div>
         )}
 
         <div className="divider" />
@@ -138,207 +145,108 @@ function ModuleCard({ mod, accessible }: { mod: BiowelModule; accessible: boolea
   );
 }
 
-function BiowelDetail() {
-  useAssistantContext('Producto · Biowel');
-  const { canAccess, user } = useAuth();
+function ProductLogo({ slug, size }: { slug: string; size: number }) {
+  return slug === 'activos-fijos'
+    ? <ActivosFijosLogo width={size} height={size} />
+    : <BiowelLogo width={size} height={size} />;
+}
 
-  // Progreso real del módulo 2 (Asistencial) desde el progreso guardado del usuario.
-  const asistDone = user?.progress?.['2']?.length ?? 0;
-  const asistTotal = 15;
-  const asistPct = Math.round((asistDone / asistTotal) * 100);
-
-  const completed = BIOWEL_MODULES.filter((m) => m.status === 'done').length;
-  const total = BIOWEL_MODULES.length;
-  const pct = Math.round((completed / total) * 100);
-
+/** Estado vacío: producto sin clientes todavía. */
+function EmptyProduct({ product }: { product: ProductSummary }) {
   return (
-    <>
-      <Topbar
-        crumb={<><Link to="/proyectos">Productos</Link> · <b>Biowel</b></>}
-        searchPlaceholder="Buscar en este producto…"
-      />
-      <div className="content">
-        <section className="card" style={{ overflow: 'hidden', marginBottom: 26, border: 0 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-            <div
-              style={{
-                flex: 1,
-                minWidth: 300,
-                padding: '30px 32px',
-                background: 'linear-gradient(135deg,#1492E6 0%,#0E45AE 100%)',
-                color: '#fff',
-                position: 'relative',
-              }}
-            >
-              <div className="dotgrid" style={{ opacity: 0.22 }} />
-              <div style={{ position: 'relative' }}>
-                <div className="row" style={{ gap: 14, marginBottom: 14, alignItems: 'center' }}>
-                  <div
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 14,
-                      background: 'rgba(255,255,255,.95)',
-                      display: 'grid',
-                      placeItems: 'center',
-                      flex: 'none',
-                    }}
-                  >
-                    <BiowelLogo width={40} height={40} />
-                  </div>
-                  <div className="row" style={{ gap: 8 }}>
-                    <span className="chip" style={{ background: 'rgba(255,255,255,.2)', color: '#fff' }}>Clínico</span>
-                    <span className="chip" style={{ background: 'rgba(255,255,255,.2)', color: '#fff' }}>Obligatorio</span>
-                  </div>
-                </div>
-                <h1 style={{ color: '#fff', fontSize: 30, maxWidth: 540 }}>Biowel</h1>
-                <p style={{ color: 'rgba(255,255,255,.9)', maxWidth: 560, margin: '10px 0 22px' }}>
-                  Software clínico-administrativo. Domina administración, asistencial, cuentas médicas y dispensación.
-                </p>
-                <div className="row wrap" style={{ gap: 22 }}>
-                  {[
-                    [String(total), 'módulos'],
-                    ['28', 'lecciones'],
-                    ['9H', 'duración'],
-                    [String(total), 'certificados'],
-                  ].map(([v, l]) => (
-                    <div key={l}>
-                      <div style={{ fontFamily: "'Sora'", fontWeight: 800, fontSize: 22 }}>{v}</div>
-                      <div className="tiny" style={{ color: 'rgba(255,255,255,.8)' }}>{l}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                width: 300,
-                flex: 'none',
-                padding: '28px 30px',
-                background: 'var(--card)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                textAlign: 'center',
-                gap: 6,
-              }}
-            >
-              <div className="ring" style={{ ['--p' as string]: pct, ['--sz' as string]: '120px' } as React.CSSProperties}>
-                <div className="v"><b style={{ fontSize: 28 }}>{pct}%</b><small>completado</small></div>
-              </div>
-              <div className="tiny muted" style={{ marginTop: 8 }}>{completed} de {total} módulos finalizados</div>
-              {canAccess(2) ? (
-                <Link className="btn pri lg" to="/modulo/2" style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}>
-                  Empezar módulo 2 ▸
-                </Link>
-              ) : (
-                <button className="btn lg" disabled style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}>
-                  🔒 Módulo 2 bloqueado
-                </button>
-              )}
-              <span className="tiny muted">Última actividad: hoy</span>
-            </div>
-          </div>
-        </section>
-
-        <div className="grid" style={{ gridTemplateColumns: '1.7fr 1fr', alignItems: 'start', gap: 26 }}>
-          <div>
-            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 20 }}>Módulos del producto</h2>
-              <span className="chip">Ruta secuencial</span>
-            </div>
-
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
-              {BIOWEL_MODULES.map((m) => {
-                const mod =
-                  m.id === 2
-                    ? {
-                        ...m,
-                        progress: asistPct,
-                        status: asistPct === 100 ? 'done' : asistDone > 0 ? 'progress' : 'idle',
-                        meta: `${asistDone} / ${asistTotal} lecciones`,
-                      } as BiowelModule
-                    : m;
-                return <ModuleCard mod={mod} accessible={canAccess(m.id)} key={m.id} />;
-              })}
-            </div>
-          </div>
-
-          <div className="grid" style={{ gap: 20 }}>
-            <section className="card" style={{ padding: 22, textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 54,
-                  height: 54,
-                  borderRadius: 14,
-                  background: 'var(--gold-50)',
-                  display: 'grid',
-                  placeItems: 'center',
-                  margin: '0 auto 12px',
-                  color: 'var(--gold)',
-                }}
-              >
-                <CertIcon width={26} height={26} strokeWidth={1.7} />
-              </div>
-              <h3 style={{ fontSize: 16 }}>Certificado del producto</h3>
-              <p className="tiny muted" style={{ margin: '7px 0 14px' }}>
-                Obtén los {total} certificados de módulo para desbloquear el certificado completo de <b>Biowel</b>.
-              </p>
-              <ProgressBar value={pct} style={{ marginBottom: 8 }} />
-              <div className="tiny muted" style={{ marginBottom: 14 }}>{completed} de {total} certificados de módulo</div>
-              <button className="btn" style={{ width: '100%', justifyContent: 'center' }} disabled>Bloqueado · {pct}%</button>
-            </section>
-          </div>
-        </div>
+    <section
+      className="card"
+      style={{
+        padding: '60px 40px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 18,
+        maxWidth: 640,
+        margin: '40px auto',
+      }}
+    >
+      <div style={{ width: 120, height: 120, borderRadius: 24, background: product.accentSoft, display: 'grid', placeItems: 'center' }}>
+        <ProductLogo slug={product.slug} size={84} />
       </div>
-    </>
+      <span className="chip">Próximamente</span>
+      <h1 style={{ fontSize: 28 }}>{product.name}</h1>
+      <p className="muted" style={{ maxWidth: 460, margin: 0 }}>
+        Aún no hay clientes para este producto. Créalos desde Administración · Clientes.
+      </p>
+      <Link to="/proyectos" className="btn pri">← Volver a productos</Link>
+    </section>
   );
 }
 
-function ActivosFijosDetail() {
-  useAssistantContext('Producto · Activos Fijos (próximamente)');
+function ProductDetail({ product }: { product: ProductSummary }) {
+  useAssistantContext(`Producto · ${product.name}`);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    listClients(product.slug)
+      .then(setClients)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [product.slug]);
 
   return (
     <>
       <Topbar
-        crumb={<><Link to="/proyectos">Productos</Link> · <b>Activos Fijos</b></>}
-        searchPlaceholder="Buscar…"
+        crumb={<><Link to="/proyectos">Productos</Link> · <b>{product.name}</b></>}
+        searchPlaceholder="Buscar en este producto…"
       />
       <div className="content">
-        <section
-          className="card"
-          style={{
-            padding: '60px 40px',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 18,
-            maxWidth: 640,
-            margin: '40px auto',
-          }}
-        >
-          <div
-            style={{
-              width: 120,
-              height: 120,
-              borderRadius: 24,
-              background: '#EAEEF7',
-              display: 'grid',
-              placeItems: 'center',
-            }}
-          >
-            <ActivosFijosLogo width={84} height={84} />
-          </div>
-          <span className="chip">Próximamente</span>
-          <h1 style={{ fontSize: 28 }}>Activos Fijos</h1>
-          <p className="muted" style={{ maxWidth: 460, margin: 0 }}>
-            Estamos preparando los módulos de capacitación para el software de control de activos fijos. Te avisaremos
-            cuando estén disponibles.
-          </p>
-          <Link to="/proyectos" className="btn pri">← Volver a productos</Link>
-        </section>
+        {loading ? (
+          <div className="card" style={{ padding: 20 }}>Cargando clientes…</div>
+        ) : clients.length === 0 ? (
+          <EmptyProduct product={product} />
+        ) : (
+          <>
+            <section className="card" style={{ overflow: 'hidden', marginBottom: 26, border: 0 }}>
+              <div style={{ padding: '30px 32px', background: `linear-gradient(135deg, ${product.accent} 0%, #0E45AE 100%)`, color: '#fff', position: 'relative' }}>
+                <div className="dotgrid" style={{ opacity: 0.22 }} />
+                <div style={{ position: 'relative' }}>
+                  <div className="row" style={{ gap: 14, marginBottom: 14, alignItems: 'center' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(255,255,255,.95)', display: 'grid', placeItems: 'center', flex: 'none' }}>
+                      <ProductLogo slug={product.slug} size={40} />
+                    </div>
+                  </div>
+                  <h1 style={{ color: '#fff', fontSize: 30 }}>{product.name}</h1>
+                  <p style={{ color: 'rgba(255,255,255,.9)', maxWidth: 560, margin: '10px 0 0' }}>
+                    Elige la implementación (cliente) para ver sus módulos de capacitación.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 20 }}>Clientes</h2>
+            </div>
+
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
+              {clients.map((c) => (
+                <Link key={c.id} className="card" to={`/cliente/${c.id}`} style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div
+                    className="cover cv-blue"
+                    style={{ height: 130, backgroundImage: `url(${assetUrl(c.cover) ?? '/modules/administracion.png'})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                  />
+                  <div style={{ padding: '16px 18px' }}>
+                    <h3 style={{ fontSize: 17, margin: 0 }}>{c.name}</h3>
+                    <p className="tiny muted" style={{ margin: '4px 0 10px' }}>{c.description}</p>
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <span className="tiny muted">{c.moduleCount} módulos</span>
+                      <span className="tiny" style={{ color: 'var(--brand-600)', fontWeight: 700 }}>Entrar →</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </>
   );
@@ -349,6 +257,5 @@ export function Proyecto() {
   const product = slug ? getProduct(slug) : undefined;
 
   if (!product) return <Navigate to="/proyectos" replace />;
-  if (product.slug === 'biowel') return <BiowelDetail />;
-  return <ActivosFijosDetail />;
+  return <ProductDetail product={product} />;
 }

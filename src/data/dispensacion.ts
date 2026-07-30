@@ -23,7 +23,7 @@ export const DISPENSACION: ModuleContent = {
           objectives: [
             'Entender por qué la parametrización va primero',
             'Conocer las reglas clave de coincidencia con PROGRAMASTOP',
-            'Identificar las 4 áreas a configurar',
+            'Identificar las 4 áreas a co',
           ],
           content: [
             {

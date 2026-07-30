@@ -1,11 +1,18 @@
 .player {
   border-radius: var(--r);
   overflow: hidden;
-  background: #0B1426 url('/modules/asistencial.png') center / cover no-repeat;
+  background: #0B1426;
   position: relative;
   aspect-ratio: 16/9;
   display: grid;
   place-items: center;
+}
+
+/* La columna principal y el temario se apilan en pantallas angostas. */
+@media (max-width: 1024px) {
+  .module-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 .player .stage-text {
   position: relative;
@@ -47,20 +54,37 @@
 .player .stage-text ul { list-style: disc; }
 .player .stage-text ol { list-style: decimal; }
 
+.lesson-body {
+  font-size: 16px;
+}
+.lesson-body > *:first-child {
+  margin-top: 0;
+}
+.lesson-body h4 {
+  font-family: 'Sora', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-700, #4338ca);
+  margin: 26px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
 .lesson-body p {
-  color: var(--ink-600, #4b5563);
-  line-height: 1.65;
-  margin: 0 0 12px;
+  color: var(--ink-700, #374151);
+  font-size: 16px;
+  line-height: 1.75;
+  margin: 0 0 14px;
 }
 .lesson-body ul,
 .lesson-body ol {
-  margin: 0 0 12px;
-  padding-left: 22px;
+  margin: 0 0 16px;
+  padding-left: 24px;
   color: var(--ink-700, #374151);
-  line-height: 1.6;
+  line-height: 1.8;
 }
 .lesson-body li {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  padding-left: 4px;
 }
 .lesson-body ul {
   list-style: disc;
